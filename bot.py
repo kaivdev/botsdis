@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands, tasks
 import time
+import json
 from datetime import datetime, timedelta
 from collections import defaultdict
 
@@ -16,9 +17,44 @@ user_voice_time = defaultdict(int)  # Общее время в голосовы�
 user_session_start = {}  # Время начала текущей сессии
 COOLDOWN_TIME = 300
 
+# Функции для сохранения и загрузки статистики
+def save_stats():
+    """Сохраняет статистику в файл"""
+    data = {
+        'user_voice_time': dict(user_voice_time),
+        'last_reset': time.time()
+    }
+    with open('voice_stats.json', 'w') as f:
+        json.dump(data, f)
+
+def load_stats():
+    """Загружает статистику из файла"""
+    try:
+        with open('voice_stats.json', 'r') as f:
+            data = json.load(f)
+            # Преобразуем ключи обратно в int, так как JSON хранит их как строки
+            user_voice_time.clear()
+            user_voice_time.update({int(k): v for k, v in data['user_voice_time'].items()})
+    except FileNotFoundError:
+        print("Файл со статистикой не найден, начинаем с пустой статистики")
+    except Exception as e:
+        print(f"Ошибка при загрузке статистики: {e}")
+
+def format_time(seconds):
+    """Форматирует время в читаемый вид"""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    
+    if hours > 0:
+        if minutes > 0:
+            return f"{hours} ч {minutes} мин"
+        return f"{hours} ч"
+    return f"{minutes} мин"
+
 @bot.event
 async def on_ready():
     print(f'{bot.user} подключился к Discord!')
+    load_stats()  # Загружаем статистику при запуске
     weekly_report.start()  # Запускаем еженедельный отчет
 
 @bot.event
@@ -82,6 +118,7 @@ async def on_voice_state_update(member, before, after):
                     session_duration = current_time - user_session_start[member.id]
                     user_voice_time[member.id] += session_duration
                     del user_session_start[member.id]
+                    save_stats()  # Сохраняем статистику после обновления
                 
         except discord.errors.Forbidden:
             print(f"Ошибка: У бота нет прав для отправки сообщений в канал")
@@ -100,8 +137,7 @@ async def weekly_report():
     for user_id, total_time in user_voice_time.items():
         try:
             user = await bot.fetch_user(user_id)
-            hours = total_time / 3600  # переводим секунды в часы
-            user_times.append((user.name, hours))
+            user_times.append((user.name, total_time))
         except:
             continue
     
@@ -110,13 +146,15 @@ async def weekly_report():
     
     # Формируем отчет
     report = "📊 **Еженедельный отчет по активности в голосовых каналах:**\n\n"
-    for i, (name, hours) in enumerate(top_users, 1):
-        report += f"{i}. {name}: {hours:.1f} часов\n"
+    for i, (name, seconds) in enumerate(top_users, 1):
+        formatted_time = format_time(seconds)
+        report += f"{i}. {name}: {formatted_time}\n"
     
     await notification_channel.send(report)
     
-    # Очищаем статистику после отправки отчета
+    # Очищаем статистику и сохраняем пустой файл
     user_voice_time.clear()
+    save_stats()
 
 # Команда для получения текущей статистики
 @bot.command()
@@ -132,8 +170,7 @@ async def stats(ctx):
     for user_id, total_time in user_voice_time.items():
         try:
             user = await bot.fetch_user(user_id)
-            hours = total_time / 3600
-            user_times.append((user.name, hours))
+            user_times.append((user.name, total_time))
         except:
             continue
     
@@ -142,10 +179,12 @@ async def stats(ctx):
     
     # Формируем отчет
     report = "📊 **Текущая статистика активности в голосовых каналах:**\n\n"
-    for i, (name, hours) in enumerate(top_users, 1):
-        report += f"{i}. {name}: {hours:.1f} часов\n"
+    for i, (name, seconds) in enumerate(top_users, 1):
+        formatted_time = format_time(seconds)
+        report += f"{i}. {name}: {formatted_time}\n"
     
     await ctx.send(report)
+    save_stats()  # Сохраняем обновленную статистику
 
 # Замените 'YOUR_TOKEN' на токен вашего бота
 bot.run('MTM1MTYxMzY0NjY3Mjc1Njg2Nw.GyoeUw.2XM-7BieJL-Q8212IXyFq1pcSHv5Srmdazw7Jk') 
