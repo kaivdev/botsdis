@@ -40,6 +40,22 @@ def load_stats():
     except Exception as e:
         print(f"Ошибка при загрузке статистики: {e}")
 
+def get_rank_emoji(seconds):
+    """Возвращает эмодзи в зависимости от времени"""
+    hours = seconds / 3600
+    if hours >= 24:
+        return "👑"  # Король/королева войса
+    elif hours >= 12:
+        return "⭐"  # Звезда
+    elif hours >= 6:
+        return "🎮"  # Геймер
+    elif hours >= 3:
+        return "🎧"  # Меломан
+    elif hours >= 1:
+        return "🎤"  # Начинающий
+    else:
+        return "🆕"  # Новичок
+
 def format_time(seconds):
     """Форматирует время в читаемый вид"""
     hours = int(seconds // 3600)
@@ -147,12 +163,24 @@ async def weekly_report():
     # Формируем отчет
     report = "📊 **Еженедельный отчет по активности в голосовых каналах:**\n\n"
     for i, (name, seconds) in enumerate(top_users, 1):
+        emoji = get_rank_emoji(seconds)
         formatted_time = format_time(seconds)
-        report += f"{i}. {name}: {formatted_time}\n"
+        report += f"{i}. {emoji} {name}: {formatted_time}\n"
+    
+    if top_users:
+        report += "\n🏆 Статусы:\n"
+        report += "👑 - 24+ часов (Король/королева войса)\n"
+        report += "⭐ - 12+ часов (Звезда)\n"
+        report += "🎮 - 6+ часов (Геймер)\n"
+        report += "🎧 - 3+ часов (Меломан)\n"
+        report += "🎤 - 1+ час (Начинающий)\n"
+        report += "🆕 - Менее часа (Новичок)"
+    else:
+        report += "\nПока нет данных об активности 😴"
     
     await notification_channel.send(report)
     
-    # Очищаем статистику и сохраняем пустой файл
+    # Очищаем статистику после отправки отчета
     user_voice_time.clear()
     save_stats()
 
@@ -180,11 +208,23 @@ async def stats(ctx):
     # Формируем отчет
     report = "📊 **Текущая статистика активности в голосовых каналах:**\n\n"
     for i, (name, seconds) in enumerate(top_users, 1):
+        emoji = get_rank_emoji(seconds)
         formatted_time = format_time(seconds)
-        report += f"{i}. {name}: {formatted_time}\n"
+        report += f"{i}. {emoji} {name}: {formatted_time}\n"
+    
+    if top_users:
+        report += "\n🏆 Статусы:\n"
+        report += "👑 - 24+ часов (Король/королева войса)\n"
+        report += "⭐ - 12+ часов (Звезда)\n"
+        report += "🎮 - 6+ часов (Геймер)\n"
+        report += "🎧 - 3+ часов (Меломан)\n"
+        report += "🎤 - 1+ час (Начинающий)\n"
+        report += "🆕 - Менее часа (Новичок)"
+    else:
+        report += "\nПока нет данных об активности 😴"
     
     await ctx.send(report)
-    save_stats()  # Сохраняем обновленную статистику
+    save_stats()
 
 # Замените 'YOUR_TOKEN' на токен вашего бота
 bot.run('MTM1MTYxMzY0NjY3Mjc1Njg2Nw.GyoeUw.2XM-7BieJL-Q8212IXyFq1pcSHv5Srmdazw7Jk') 
